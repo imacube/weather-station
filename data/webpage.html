@@ -1,0 +1,222 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <title>Weather Station</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='90' font-size='90'>🌤️</text></svg>">
+    <style>
+        html {
+            font-family: Arial;
+            display: inline-block;
+            text-align: center;
+            font-size: 1rem;
+        }
+
+        p {
+            font-size: 1.2rem;
+        }
+
+        body {
+            margin: 0;
+        }
+
+        .topnav {
+            overflow: hidden;
+            background-color: #50B8B4;
+            color: white;
+            font-size: 1rem;
+        }
+
+        .content {
+            padding: 20px;
+        }
+
+        .card {
+            background-color: white;
+            box-shadow: 2px 2px 12px 1px rgba(140, 140, 140, .5);
+        }
+
+        .cards {
+            max-width: 800px;
+            margin: 1rem auto;
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        }
+
+        .reading {
+            font-size: 1.4rem;
+        }
+    </style>
+</head>
+
+<body>
+    <span id="conn-status"></span>
+    <div class="topnav">
+        <h1>Weather Station</h1>
+        <p>Version: <span id="version">❌</span></p>
+        <p>Seconds: <span id="millis">❌</span></p>
+    </div>
+    <main>
+        <section class="content">
+            <div class="cards">
+                <article class="card">
+                    <p>
+                        <span aria-hidden="true">🌡️</span>
+                        Temperature
+                    </p>
+                    <p><span class="reading"><span id="temperature">❌</span> &deg;F</span></p>
+                </article>
+                <article class="card">
+                    <p>
+                        <span aria-hidden="true">💧</span>
+                        Humidity
+                    </p>
+                    <p><span class="reading"><span id="humidity">❌</span> &percnt;</span></p>
+                </article>
+                <article class="card">
+                    <p>
+                        <span aria-hidden="true">↟↡</span>
+                        Pressure
+                    </p>
+                    <p><span class="reading"><span id="pressure">❌</span> hPa</span></p>
+                </article>
+                <article class="card">
+                    <p>
+                        <span aria-hidden="true">🧭</span>
+                        Wind Direction
+                    </p>
+                    <p><span class="reading"><span id="wind_direction">❌</span> &deg;</span></p>
+                </article>
+                <article class="card">
+                    <p>
+                        <span aria-hidden="true">🍃</span>
+                        Wind Speed
+                    </p>
+                    <p><span class="reading"><span id="wind_speed">❌</span> kph</span></p>
+                </article>
+                <article class="card">
+                    <p>
+                        <span aria-hidden="true">🌧️</span>
+                        Total Rainfall
+                    </p>
+                    <p><span class="reading"><span id="total_rainfall">❌</span> mm</span></p>
+                </article>
+                <article class="card">
+                    <p>
+                        <span aria-hidden="true">🌧️</span>
+                        Soil Moisture
+                    </p>
+                    <p><span class="reading"><span id="soil_moisture">❌</span></span></p>
+                    <p>Raw Value</p>
+                </article>
+                <article class="card">
+                    <p>
+                        <span aria-hidden="true">🌡️</span>
+                        Control Board Temperature
+                    </p>
+                    <p><span class="reading"><span id="board_temp">❌</span> &deg;F</span></p>
+                </article>
+            </div>
+            <div class="cards">
+                <article class="card">
+                    <p>
+                        <span aria-hidden="true">🌩️</span>
+                        Lightning
+                    </p>
+                    <p><span class="reading">Timestamp: <span id="timestamp">❓</span></span></p>
+                    <p><span class="reading">Event: <span id="event">❓</span></span></p>
+                    <p><span class="reading">Distance: <span id="distance">❓</span> km</span></p>
+                    <p><span class="reading">Energy (raw value): <span id="energy">❓</span></span></p>
+                </article>
+            </div>
+        </section>
+    </main>
+    <script>
+        (function initWeather() {
+            // Verify SSE support
+            if (!('EventSource' in window)) {
+                console.warn('Server‑Sent Events not supported in this browser.');
+                return;
+            }
+
+            // Create the connection
+            const source = new EventSource('http://weather.local/events');
+
+            // UI status element
+            const statusEl = document.getElementById('conn-status'); // add <span id="conn-status"></span> somewhere
+
+            source.addEventListener('open', () => {
+                console.log('Events Connected');
+                if (statusEl) {
+                    statusEl.textContent = '✔︎';
+                    statusEl.style.color = '#28a745';
+                }
+            });
+
+            source.addEventListener('error', e => {
+                if (e.target.readyState !== EventSource.OPEN) {
+                    console.log('Events Disconnected');
+                    if (statusEl) {
+                        statusEl.textContent = '✖︎';
+                        statusEl.style.color = '#dc3545';
+                    }
+                }
+            });
+
+            // All else gets logged to the console
+            source.addEventListener('message', e => {
+                console.log('message', e.data);
+            });
+
+            source.addEventListener('sensors', e => {
+                try {
+                    const data = JSON.parse(e.data);
+                    console.log(data);
+                    if (data.type == 'weather_data') {
+                        if (data.external_temp_c) {
+                            temperature = Math.round(((data.external_temp_c * 1.8) + 32) * 100) / 100;
+                            document.getElementById('temperature').textContent = temperature;
+                        }
+                        if (data.board_temp_c) {
+                            temperature = Math.round(((data.board_temp_c * 1.8) + 32) * 100) / 100;
+                            document.getElementById('board_temp').textContent = temperature;
+                        }
+                        if (data.humidity) document.getElementById('humidity').textContent = data.humidity;
+                        if (data.pressure) document.getElementById('pressure').textContent = data.pressure;
+                        if (data.wind_direction) document.getElementById('wind_direction').textContent = data.wind_direction;
+                        if (data.wind_speed) document.getElementById('wind_speed').textContent = data.wind_speed;
+                        if (data.total_rainfall) document.getElementById('total_rainfall').textContent = data.total_rainfall;
+                        if (data.soil_moisture) document.getElementById('soil_moisture').textContent = data.soil_moisture;
+                        if (data.millis) document.getElementById('millis').textContent = data.millis;
+                        if (data.version) document.getElementById('version').textContent = data.version;
+                    }
+                    else if (data.type == 'lightning') {
+                        // {"timestamp":"2026-02-10T22:28:34","event":"noise","type":"lightning"}
+                        if (data.timestamp) document.getElementById('timestamp').textContent = data.timestamp;
+                        if (data.event) document.getElementById('event').textContent = data.event;
+                        if (data.distance) {
+                            document.getElementById('distance').textContent = data.distance;
+                        }
+                        else {
+                            document.getElementById('distance').textContent = "";
+                        }
+                        if (data.energy) {
+                            document.getElementById('energy').textContent = data.energy;
+                        }
+                        else {
+                            document.getElementById('energy').textContent = "";
+                        }
+                    }
+                } catch (err) {
+                    console.error('Bad JSON from SSE:', err);
+                }
+            })
+        })();
+    </script>
+</body>
+
+</html>
